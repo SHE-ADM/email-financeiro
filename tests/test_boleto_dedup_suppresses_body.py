@@ -130,6 +130,10 @@ class BoletoDedupSuppressesBodyTest(unittest.TestCase):
         self.assertEqual(accounts_saved, 0)
         self.assertTrue(attachment_account)
         self.assertEqual(ctrl.financial_calls, [])   # nao gravou conta nova
+        # O PDF ja foi upado no Passo 1 (Storage); dedup sem vincular o anexo a conta
+        # existente deixava o comprovante ausente em silencio (achado real: contas
+        # 1238/1239/1240 do fornecedor ALKO, dedup em 28/08 sem anexo registrado).
+        self.assertEqual(ctrl.attachment_calls, [(159, "boleto_ober.pdf")])
 
     def test_reemissao_atualiza_e_sinaliza_conta_do_anexo(self):
         # Boleto com vencimento mais novo → atualiza a conta existente; ainda conta
@@ -139,6 +143,7 @@ class BoletoDedupSuppressesBodyTest(unittest.TestCase):
         self.assertEqual(accounts_saved, 0)
         self.assertTrue(attachment_account)
         self.assertEqual(len(ctrl.update_calls), 1)   # atualizou o vencimento
+        self.assertEqual(ctrl.attachment_calls, [(159, "boleto_ober.pdf")])
 
     def test_boleto_enriquece_conta_existente_sem_barcode(self):
         # dup do corpo SEM barcode + vencimento igual → o boleto grava a linha
@@ -151,15 +156,17 @@ class BoletoDedupSuppressesBodyTest(unittest.TestCase):
         dup_id, patch = ctrl.update_calls[0]
         self.assertEqual(dup_id, 159)
         self.assertEqual(patch.get("barcode"), BOLETO_OBER)
+        self.assertEqual(ctrl.attachment_calls, [(159, "boleto_ober.pdf")])
 
     def test_boleto_nao_reescreve_barcode_de_conta_existente(self):
         # dup já COM barcode e vencimento igual → nada a fazer (não sobrescreve
-        # o boleto existente nem duplica).
+        # o boleto existente nem duplica) — mas o anexo ainda e vinculado.
         ctrl = FakeControl(dup={"id": 159, "due_date": "2026-07-18", "barcode": "JA_TEM"})
         _csvs, accounts_saved, _nonpayable, attachment_account = _run(ctrl, _boleto_row())
         self.assertEqual(accounts_saved, 0)
         self.assertTrue(attachment_account)
         self.assertEqual(ctrl.update_calls, [])
+        self.assertEqual(ctrl.attachment_calls, [(159, "boleto_ober.pdf")])
 
     def test_boleto_novo_tambem_sinaliza_conta_do_anexo(self):
         # Sem dedup: grava conta nova → attachment_account True.

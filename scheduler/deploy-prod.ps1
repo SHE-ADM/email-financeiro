@@ -10,7 +10,7 @@
   (pega o erro clássico de esquecer o send_core.py — dependência NOVA do run.py).
 
   NÃO toca: server\ (Flask), apps\ (frontend), tests\, nem tarefas do Agendador.
-  NÃO precisa "reiniciar" nada: a tarefa de horário inicia um processo novo às 08:00
+  NÃO precisa "reiniciar" nada: a tarefa de horário inicia um processo novo às 10:00
   e lê os arquivos do disco naquele instante.
 
   Por padrão roda em PREVIEW (não copia). Use -Apply para efetivar.

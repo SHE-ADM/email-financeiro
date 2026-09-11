@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Execute este script UMA VEZ como Administrador para criar a tarefa.
-    Após o registro, a tarefa roda automaticamente 1x por dia às 08:00,
+    Após o registro, a tarefa roda automaticamente 1x por dia às 10:00,
     chamando run.py que lê títulos vencidos no Firebird e envia e-mails de cobrança
     por SMTP (Locaweb).
 
@@ -38,7 +38,7 @@
 # ---------------------------------------------------------------------------
 $TASK_NAME   = "Pagamentos - Cobrança Vencidos"
 $TASK_PATH   = "\Sheild\"      # pasta no Agendador de Tarefas (mesma do Email Reader)
-$TRIGGER_H   = 8               # hora do disparo diário (8 = 08:00)
+$TRIGGER_H   = 10              # hora do disparo diário (10 = 10:00) — alterado em 2026-09-01
 $TRIGGER_M   = 0
 $TIMEOUT_MIN = 30              # tempo máximo de execução por disparo
 
@@ -80,7 +80,7 @@ $action = New-ScheduledTaskAction `
     -WorkingDirectory $PROJECT_ROOT
 
 # ---------------------------------------------------------------------------
-# Gatilho: diário às 08:00 (TRIGGER_H/TRIGGER_M)
+# Gatilho: diário às 10:00 (TRIGGER_H/TRIGGER_M)
 # ---------------------------------------------------------------------------
 $startAt = (Get-Date -Hour $TRIGGER_H -Minute $TRIGGER_M -Second 0 -Millisecond 0)
 # Se o horário de hoje já passou, agenda para amanhã
@@ -110,7 +110,7 @@ Register-ScheduledTask `
     -Action      $action `
     -Trigger     $trigger `
     -Settings    $settings `
-    -Description "Envia e-mails de cobrança para títulos vencidos (Firebird) 1x por dia às 08:00. Credenciais: .env na raiz do projeto." `
+    -Description "Envia e-mails de cobrança para títulos vencidos (Firebird) 1x por dia às 10:00. Credenciais: .env na raiz do projeto." `
     -RunLevel    Highest `
     -Force | Out-Null
 
@@ -127,7 +127,7 @@ if ($task) {
     Write-Host "  Executor  : $psExe"
     Write-Host "  Runner    : $RUNNER"
     Write-Host "  Proximo   : $startAt"
-    Write-Host "  Frequencia: 1x por dia as 08:00"
+    Write-Host "  Frequencia: 1x por dia as 10:00"
     Write-Host "  Timeout   : $TIMEOUT_MIN minutos por execucao"
     Write-Host ""
     Write-Host "Para testar agora (sem aguardar o meio-dia):" -ForegroundColor Cyan

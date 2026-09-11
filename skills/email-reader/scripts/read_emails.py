@@ -3189,14 +3189,24 @@ def _is_fardos_sender(sender_email: str | None) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Empresa pagadora (sk_company) — regra por PRECEDENCIA (decisao do usuario, 2026-07-17).
+# Empresa pagadora (sk_company) — regra por PRECEDENCIA (decisao do usuario, 2026-07-17;
+# LE BLANC acrescentada em 2026-09-11).
 #
-#   1o  remetente ester@otimotex.com.br  -> 3 (OTIMOTEX FARDOS)   <- VENCE tudo
-#   2o  referencia a "lebianco"          -> 2 (LEBIANCO)
-#   3o  nenhum dos dois                  -> 1 (OTIMOTEX TECIDOS)
+#   1o  mencao a LE BLANC / pagador LE BLANC -> 4 (LE BLANC)        <- VENCE tudo
+#   2o  remetente ester@otimotex.com.br      -> 3 (OTIMOTEX FARDOS)
+#   3o  referencia a "lebianco"              -> 2 (LEBIANCO)
+#   4o  nenhum dos anteriores                -> 1 (OTIMOTEX TECIDOS)
+#
+# LE BLANC (2026-09-11): QUALQUER mencao ("le blanc", "leblanc", "le_blanc"...) no assunto,
+# corpo, anexo (texto e nome do arquivo), remetente, descricao, pagador impresso
+# (payer_name/payer_cnpj pela raiz 20584679) — e TAMBEM no FORNECEDOR — marca a conta como da
+# LE BLANC. Ela vence inclusive a ester (decisao explicita). ASSIMETRIA DELIBERADA com a
+# LEBIANCO: fornecedor LEBIANCO NAO classifica (regra de 2026-07-17, abaixo); fornecedor
+# LE BLANC classifica — o usuario decidiu que toda mencao vale, mesmo quando ela e a
+# beneficiaria (a correcao nesses casos e manual pela tela; o trigger preserva a curadoria).
 #
 # A ester vence o DOMINIO otimotex.com.br E a mencao a lebianco (decisao explicita): tudo
-# que ela extrai e da FARDOS. Nos e-mails/dados externos o termo "OTIMOTEX" continua
+# que ela extrai e da FARDOS — salvo mencao a LE BLANC. Nos e-mails/dados externos o termo "OTIMOTEX" continua
 # sozinho — o rename para "OTIMOTEX TECIDOS" e so do NOME no cadastro/UI, nada que casa
 # texto de fora muda (ver _RECEIVABLE_SUBJECT_TERMS, payer/CNPJ).
 #
@@ -3220,7 +3230,21 @@ def _is_fardos_sender(sender_email: str | None) -> bool:
 SK_COMPANY_DEFAULT = 1     # OTIMOTEX TECIDOS — empresa pagadora padrao (sem ester, sem lebianco)
 SK_COMPANY_LEBIANCO = 2    # LEBIANCO
 SK_COMPANY_FARDOS = 3      # OTIMOTEX FARDOS — tudo que vem do FARDOS_SENDER
+SK_COMPANY_LE_BLANC = 4    # LE BLANC ADMINISTRACAO DE BENS PROPRIOS LTDA (CNPJ 20584679000110)
 LEBIANCO_TERM = "lebianco"
+
+# Raiz (8 digitos) do CNPJ da LE BLANC — cobre matriz e filiais. Raiz DIFERENTE da do grupo
+# OTIMOTEX (47273917), por isso a LE BLANC nao cai na exclusao "a pagadora nunca e
+# fornecedor" (company_cnpj() usa so o sk=1) e continua podendo ser FORNECEDORA.
+LE_BLANC_CNPJ_ROOT = "20584679"
+_CNPJ_LEN = 14
+
+# "le" + separador OPCIONAL (espaco/_/./-) + "blanc": casa "LE BLANC", "LEBLANC", "Le_Blanc",
+# "Le-Blanc". Aplicado sobre texto ja normalizado por _ns_body (sem acento, minusculo).
+# Fronteiras por lookaround, NAO \b: o \b do Python trata "_" como letra e perderia
+# "BOLETO_LEBLANC_-_POR.pdf" (nome de arquivo real). A fronteira a DIREITA impede casar
+# "LEBLANCO" — leitura OCR plausivel de "LEBIANCO" (i/l), que e OUTRA empresa.
+_LE_BLANC_RE = re.compile(r"(?<![a-z0-9])le[\s_.\-]*blanc(?![a-z0-9])")
 
 # Grafia com ESPACO ("LE BIANCO"), aceita SO NO ASSUNTO (nao regredir — verificado no dado
 # real): no assunto e referencia deliberada ("LE BIANCO - PAGAMENTO FORNECEDOR"); no CORPO
@@ -3249,6 +3273,39 @@ def _subject_has_lebianco(subject: "str | None") -> bool:
         return False
     norm = _ns_body(subject)
     return LEBIANCO_TERM in norm or LEBIANCO_SUBJECT_TERM in norm
+
+
+def _has_le_blanc_reference(*texts: "str | None") -> bool:
+    """True se QUALQUER texto menciona a LE BLANC em qualquer grafia (_LE_BLANC_RE).
+
+    Ao contrario da LEBIANCO, a grafia com espaco vale em TODA fonte (decisao do usuario,
+    2026-09-11) — e o que aparece no dado real ("Le Blanc - Boleto Porto Saude"). None/vazio
+    sao ignorados (_ns_body nao e None-safe).
+    """
+    return any(_LE_BLANC_RE.search(_ns_body(str(t))) for t in texts if t)
+
+
+def _is_le_blanc_cnpj(value: "str | None") -> bool:
+    """True se o valor e um CNPJ de 14 digitos com a raiz da LE BLANC (matriz ou filial).
+
+    Exige os 14 digitos: um CNPJ com digito deslocado por OCR (caso real, conta 759:
+    "02058467900011") NAO casa — aceita-lo exigiria heuristica de substring que casaria
+    lixo; nesses casos a mencao ao nome (assunto/anexo) e quem classifica.
+    """
+    digits = re.sub(r"\D", "", str(value or ""))
+    return len(digits) == _CNPJ_LEN and digits.startswith(LE_BLANC_CNPJ_ROOT)
+
+
+def _le_blanc_supplier_signal(payload: dict) -> bool:
+    """True se o FORNECEDOR extraido da linha e a LE BLANC (nome ou CNPJ).
+
+    🔴 Tem de ser avaliado ANTES de _finalize_supplier, que REMOVE supplier_name/
+    supplier_cnpj do payload: a fornecedora LE BLANC lida so pelo Vision (sem texto cru do
+    anexo) seria perdida em silencio se a checagem ficasse para depois. Os call sites
+    capturam o resultado e o repassam a apply_sk_company(le_blanc=...).
+    """
+    return (_has_le_blanc_reference(payload.get("supplier_name"))
+            or _is_le_blanc_cnpj(payload.get("supplier_cnpj")))
 
 
 def _pdf_text(pdf_path) -> str:
@@ -3355,12 +3412,23 @@ def _register_cte_content(ctrl, pdf_text: str, storage_key: str) -> int:
 
 def resolve_sk_company(subject=None, body_text=None, sender_email=None, description=None,
                        source_file=None, payer_name=None, email_body_excerpt=None,
-                       pdf_lebianco: bool = False) -> int:
+                       pdf_lebianco: bool = False, payer_cnpj=None,
+                       le_blanc: bool = False) -> int:
     """Empresa pagadora da conta, por PRECEDENCIA (nao regredir a ordem):
 
-    1o ester (FARDOS=3) -> 2o referencia a lebianco (2) -> 3o default (OTIMOTEX TECIDOS=1).
+    1o LE BLANC (4) -> 2o ester (FARDOS=3) -> 3o referencia a lebianco (2) ->
+    4o default (OTIMOTEX TECIDOS=1).
+
+    `le_blanc` e o sinal ja apurado pelo caller (texto/nome do anexo, fornecedor capturado
+    antes de _finalize_supplier) — fontes que nao chegam aqui como parametro.
     """
-    # PRIMEIRO de todos: o remetente da FARDOS vence o dominio otimotex.com.br E a mencao a
+    # 🔴 PRIMEIRO de todos: a LE BLANC vence a ester (decisao do usuario, 2026-09-11).
+    # Descer esta checagem para baixo da ester devolveria FARDOS para conta da LE BLANC.
+    if (le_blanc or _is_le_blanc_cnpj(payer_cnpj)
+            or _has_le_blanc_reference(subject, body_text, sender_email, description,
+                                       source_file, payer_name, email_body_excerpt)):
+        return SK_COMPANY_LE_BLANC
+    # Em seguida: o remetente da FARDOS vence o dominio otimotex.com.br E a mencao a
     # lebianco (decisao do usuario). Mover esta checagem para baixo inverteria a regra.
     if _is_fardos_sender(sender_email):
         return SK_COMPANY_FARDOS
@@ -3372,9 +3440,14 @@ def resolve_sk_company(subject=None, body_text=None, sender_email=None, descript
     return SK_COMPANY_DEFAULT
 
 
-def apply_sk_company(payload: dict, body_text: str = "", pdf_lebianco: bool = False) -> None:
-    """Grava payload['sk_company'] pela regra LEBIANCO, RESPEITANDO valor ja presente
-    (mesmo idiom de created_by em register_financial)."""
+def apply_sk_company(payload: dict, body_text: str = "", pdf_lebianco: bool = False,
+                     le_blanc: bool = False) -> None:
+    """Grava payload['sk_company'] pela regra de empresa pagadora, RESPEITANDO valor ja
+    presente (mesmo idiom de created_by em register_financial).
+
+    O fornecedor LE BLANC tambem e lido do proprio payload quando as colunas ainda estao la
+    (rede universal de register_financial / scripts); nos call sites do pipeline elas ja
+    foram removidas por _finalize_supplier, e o sinal chega por `le_blanc`."""
     if payload.get("sk_company"):
         return
     payload["sk_company"] = resolve_sk_company(
@@ -3386,6 +3459,8 @@ def apply_sk_company(payload: dict, body_text: str = "", pdf_lebianco: bool = Fa
         payer_name=payload.get("payer_name"),
         email_body_excerpt=payload.get("email_body_excerpt"),
         pdf_lebianco=pdf_lebianco,
+        payer_cnpj=payload.get("payer_cnpj"),
+        le_blanc=le_blanc or _le_blanc_supplier_signal(payload),
     )
 
 
@@ -5279,6 +5354,11 @@ def extract_and_store_accounts(saved_pdfs: list, message_id: str,
     pdf_lebianco = (_is_lebianco_sender(err_ctx.get("sender_email"))
                     or _subject_has_lebianco(err_ctx.get("subject"))
                     or _has_lebianco_reference(body_text))
+    # Regra LE BLANC — mesma semantica de MENSAGEM da flag acima: mencao no assunto, corpo,
+    # remetente ou em QUALQUER anexo (texto cru e nome do arquivo, somados no laco abaixo)
+    # marca todas as contas do e-mail. O fornecedor LE BLANC e somado POR LINHA, adiante.
+    le_blanc_ref = _has_le_blanc_reference(err_ctx.get("subject"), body_text,
+                                           err_ctx.get("sender_email"))
     for pdf_path in saved_pdfs:
         try:
             attachment_sizes[pdf_path.name] = pdf_path.stat().st_size
@@ -5296,6 +5376,8 @@ def extract_and_store_accounts(saved_pdfs: list, message_id: str,
 
         if not pdf_lebianco and _has_lebianco_reference(pdf_raw_text):
             pdf_lebianco = True   # curto-circuito da FLAG (a leitura acima ja aconteceu)
+        if not le_blanc_ref and _has_le_blanc_reference(pdf_raw_text, pdf_path.name):
+            le_blanc_ref = True   # reusa o texto ja lido — sem I/O extra
 
         # Publica o PDF no Storage SEMPRE (antes da extracao) — assim o anexo fica
         # disponivel para revisao manual mesmo quando a extracao falha por completo.
@@ -5545,6 +5627,9 @@ def extract_and_store_accounts(saved_pdfs: list, message_id: str,
         # 🔴 `body_text` E' OBRIGATORIO AQUI — e' o que habilita o fallback 1b
         # (e-mail do remetente original encaminhado) no caminho de ANEXO. Sem ele a
         # chamada COMPILA e o fallback fica MORTO em producao, sem sintoma nenhum.
+        # 🔴 Fornecedor LE BLANC capturado AQUI, antes do finalize (que remove
+        # supplier_name/supplier_cnpj) e depois dos overrides SSW/corpo acima.
+        row_le_blanc = le_blanc_ref or _le_blanc_supplier_signal(payload)
         if not _finalize_supplier(ctrl, payload, body_text):
             ctrl.register_error(
                 ctx, "db_erro",
@@ -5559,12 +5644,14 @@ def extract_and_store_accounts(saved_pdfs: list, message_id: str,
         # no supplier (exceto OTIMOTEX). Roda apos finalize (sk/cc/ca ja setados), antes da dedup.
         apply_forced_classification(ctrl, payload)
 
-        # Empresa pagadora (regra LEBIANCO): mencao no assunto/corpo/anexo/remetente -> 2,
-        # senao 1. Aqui (e nao so na rede do register_financial) porque este e o unico ponto
-        # com body_text + o flag do anexo em escopo. Roda DEPOIS de _finalize_supplier, que ja
-        # removeu supplier_name/cnpj do payload — a empresa pagadora nao se confunde com o
-        # fornecedor (pode haver conta da LEBIANCO cujo fornecedor e a OTIMOTEX).
-        apply_sk_company(payload, body_text=body_text, pdf_lebianco=pdf_lebianco)
+        # Empresa pagadora (LE BLANC -> ester -> LEBIANCO -> OTIMOTEX). Aqui (e nao so na
+        # rede do register_financial) porque este e o unico ponto com body_text + as flags do
+        # anexo em escopo. Roda DEPOIS de _finalize_supplier, que ja removeu supplier_name/cnpj
+        # do payload — por isso o fornecedor LE BLANC chega pela flag row_le_blanc; o
+        # fornecedor LEBIANCO segue sem classificar (pode haver conta da OTIMOTEX cujo
+        # fornecedor e a LEBIANCO).
+        apply_sk_company(payload, body_text=body_text, pdf_lebianco=pdf_lebianco,
+                         le_blanc=row_le_blanc)
 
         # Write-back de contato (chave PIX / telefone / WhatsApp) detectado no texto
         # do e-mail para o cadastro do fornecedor. Best-effort, nao toca no payload.
@@ -5613,6 +5700,22 @@ def extract_and_store_accounts(saved_pdfs: list, message_id: str,
                 log.info(
                     f"    [DUP-DOC] reemissão igual/mais antiga — mantido "
                     f"({row.get('source_file')})"
+                )
+            # Vincula o anexo deduplicado a conta EXISTENTE (migration 079) — sem isto o
+            # boleto recem-chegado fica so no Storage (upload do Passo 1), sem linha em
+            # financial_account_attachment, e a conta que ele deduplicou (ex.: lancada
+            # manualmente antes do e-mail chegar) segue sem nenhum comprovante anexado,
+            # em silencio: nenhum erro, nenhum status distinto — so um anexo ausente que
+            # ninguem nota ate precisar dele. Mesma chamada do caminho de conta NOVA
+            # (idempotente por on_conflict=account_id,storage_key); nao usar
+            # payload.get("created_by") sozinho pelo mesmo motivo de la — o dict aqui
+            # nunca o recebe, quem resolve de fato e' resolve_user.
+            src = row.get("source_file")
+            if src:
+                ctrl.register_attachment(
+                    dup["id"], src,
+                    size_bytes=attachment_sizes.get(src, 0),
+                    uploaded_by=payload.get("created_by") or ctrl.resolve_user(payload.get("sender_email")),
                 )
             # O boleto anexado casou uma conta ja existente: o pagavel foi tratado.
             # Conta como conta do anexo → suprime o fallback do corpo (nao regredir:
@@ -5759,6 +5862,8 @@ def try_extract_from_body(email_rec: dict, body_text: str, received_at: str,
     # Resolve o fornecedor (RPC) → grava sk_supplier e remove as colunas
     # denormalizadas. ANTES da dedup (que casa por sk_supplier). Falha de
     # resolucao → trata como sem pagavel utilizavel (chamador segue p/ falha).
+    # 🔴 Fornecedor LE BLANC capturado ANTES do finalize, que remove supplier_name/cnpj.
+    body_le_blanc = _le_blanc_supplier_signal(payload)
     if not _finalize_supplier(ctrl, payload, body_text):
         email_rec["notes"] = "Falha ao resolver fornecedor do corpo do e-mail"
         return BODY_NONE
@@ -5769,10 +5874,11 @@ def try_extract_from_body(email_rec: dict, body_text: str, received_at: str,
     # chart_account_id.
     apply_forced_classification(ctrl, payload, extra_text=body_text)
 
-    # Empresa pagadora (regra LEBIANCO): mencao no assunto/corpo/remetente -> 2, senao 1.
-    # No payload BASE, antes do bloco de parcelas — os clones herdam sk_company via dict(payload).
-    # Sem pdf_lebianco: este e o caminho do CORPO (nao ha anexo pagavel).
-    apply_sk_company(payload, body_text=body_text)
+    # Empresa pagadora (LE BLANC -> ester -> LEBIANCO -> OTIMOTEX) pelo assunto/corpo/
+    # remetente + fornecedor LE BLANC capturado acima. No payload BASE, antes do bloco de
+    # parcelas — os clones herdam sk_company via dict(payload). Sem pdf_lebianco: este e o
+    # caminho do CORPO (nao ha anexo pagavel).
+    apply_sk_company(payload, body_text=body_text, le_blanc=body_le_blanc)
 
     # Write-back de contato (chave PIX / telefone / WhatsApp) do corpo do e-mail para
     # o cadastro do fornecedor. Best-effort, nao toca no payload. Roda no payload base,

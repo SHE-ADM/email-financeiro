@@ -133,6 +133,8 @@ Lições completas, ferramentas e o método de validação por mutante: skill
   (checkpoint, cache, lock) se isola no `setUp` com `tempfile.TemporaryDirectory`.
 - **Suítes:** Vitest em `apps/frontend-vite` (jsdom), `apps/api-backend` (node) e
   `packages/shared` (node); pytest em `tests/` para o pipeline Python.
+- ⚠️ **pytest roda no `py -3`** (deps de `requirements-dev.txt`) — o `.venv` da raiz é o runtime e
+  **não tem pytest**: `No module named pytest` ali é ambiente, não suíte quebrada.
 - 🔴 **`packages/shared` NÃO tem `vitest.config.ts`, e é deliberado** — um `.ts` na raiz do pacote
   ficaria fora do `include: ["src"]` do tsconfig e quebraria o lint type-aware.
 - 🔴 **`src/index.test.ts` valida o barrel E faz a cobertura enxergar o pacote inteiro** (o v8 só
@@ -727,6 +729,11 @@ devolver "sem duplicata" e o pipeline **gravaria conta duplicada**. Resultado va
 **Reemissão** (vencimento mais recente) atualiza a conta existente, não cria outra. 🔴 **Dedup que
 descarta tudo do PDF ⇒ status `duplicidade`**, nunca `extraído` — é o que torna a perda auditável.
 
+🔴 **Boleto casado por dedup TAMBÉM vincula o anexo à conta EXISTENTE** (`register_attachment` no
+bloco de dedup, não só no de conta nova). O PDF já está no Storage desde o Passo 1; sem o vínculo,
+a conta ficava sem nenhum comprovante — sem erro, sem status distinto (achado 2026-09-04,
+fornecedor ALKO — contas 1238/1239/1240 sem PDF por dois dias).
+
 ### Tipo de documento e classificação
 
 Catálogo dos tipos e os casos que originaram cada regra:
@@ -840,8 +847,12 @@ descoberto. 🔴 **Chave efêmera nasce com `_` e é removida em `strip_transien
 de gravação** (`register_financial` serializa o payload inteiro; chave que não é coluna faz o
 PostgREST recusar o INSERT com **PGRST204** e a conta deixa de ser gravada).
 
-🔴 **Empresa pagadora (`sk_company`) — a ORDEM é a regra:** remetente exato da FARDOS → menção a
-"lebianco" (**vence o CNPJ**) → TECIDOS (default). ⚠️ `OTIMOTEX_SK_SUPPLIER` (=1) ≠
+🔴 **Empresa pagadora (`sk_company`) — a ORDEM é a regra:** menção a LE BLANC em qualquer grafia
+e fonte, ou pagador com CNPJ raiz `20584679` (4, **vence a ester**) → remetente exato da FARDOS (3)
+→ menção a "lebianco" (2, **vence o CNPJ**) → TECIDOS (1, default). **Assimetria deliberada:**
+fornecedor LE BLANC classifica, fornecedor LEBIANCO não — e o sinal do fornecedor é capturado
+**antes** de `_finalize_supplier`, que remove as colunas. A menção vale por **MENSAGEM**, como a
+da LEBIANCO: nome ou texto de QUALQUER anexo marca todas as contas do e-mail. ⚠️ `OTIMOTEX_SK_SUPPLIER` (=1) ≠
 `SK_COMPANY_DEFAULT` (=1) — tabelas diferentes; nunca find-replace nos dois.
 
 ### Documentos NÃO-pagáveis e casos de leitura
@@ -1098,7 +1109,7 @@ O que cada um faz, o que copiar e como validar: skill `.claude/skills/deploy-pro
 | Pipeline | Papel | Frequência |
 |---|---|---|
 | **Email Reader** | entrada — IMAP → extração → Supabase | 5 min |
-| **Cobrança de vencidos** | saída — Firebird → SMTP Locaweb | 08:00 |
+| **Cobrança de vencidos** | saída — Firebird → SMTP Locaweb | 10:00 |
 | **Backup do Supabase** | infra — `pg_dump` + bucket | 02:00 |
 | **Baixa automática** | reconciliação — 2 regras independentes | 08:00 |
 | **Gatilhos do roadmap** | medição mensal dos 7 gatilhos da Onda 9 | dia 1, 07:00 |

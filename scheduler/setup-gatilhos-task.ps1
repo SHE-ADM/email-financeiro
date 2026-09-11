@@ -23,7 +23,7 @@ $RUNNER       = Join-Path $PSScriptRoot "run_gatilhos.ps1"
 
 $TRIGGER_DAY  = 1      # dia do mês
 $TRIGGER_H    = 7      # 07:00 — antes do expediente e longe das outras tarefas:
-$TRIGGER_M    = 0      #   backup 02:00 · cobrança e baixa 08:00 · reader de 5 em 5 min
+$TRIGGER_M    = 0      #   backup 02:00 · baixa 08:00 · cobrança 10:00 · reader de 5 em 5 min
 $TIMEOUT_MIN  = 15     # a medição inteira leva segundos; 15 min é folga para rede ruim
 
 # ---------------------------------------------------------------------------

@@ -33,7 +33,7 @@ const DOCUMENT_TYPE_OPTIONS = [...DOCUMENT_TYPES].sort((a, b) => a.localeCompare
 const PAYMENT_METHOD_OPTIONS = [...PAYMENT_METHODS].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
 // Empresa pagadora (financial_account_control.sk_company) — 1 OTIMOTEX TECIDOS (default),
-// 2 LEBIANCO, 3 OTIMOTEX FARDOS. Na CRIAÇÃO o inicial vem de useDefaultSkCompany (a ester
+// 2 LEBIANCO, 3 OTIMOTEX FARDOS, 4 LE BLANC. Na CRIAÇÃO o inicial vem de useDefaultSkCompany (a ester
 // nasce em FARDOS; os demais, em TECIDOS); na edição, da própria conta. Na extração quem
 // define é a regra de precedência do read_emails.py, não este form.
 // Fallback só para quando o lookup falhar — o select nunca fica vazio e o lançamento não trava.

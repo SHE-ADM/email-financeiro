@@ -16,6 +16,17 @@
 
 ## Changelog (mais recente primeiro)
 
+**A `135` faz o backfill da 4ª empresa pagadora, LE BLANC (`sk_company = 4`, CNPJ
+`20584679000110`)** — sem DDL (a linha em `company` foi cadastrada pelo usuário; o trigger da 084
+respeita valor explícito, então o valor gruda). Move para 4 toda conta com menção a LE BLANC em
+qualquer grafia ("le blanc", "leblanc", "le_blanc") na própria conta, no e-mail de origem ou no
+fornecedor, ou com `payer_cnpj` de raiz `20584679` — espelho da regra Python de
+`resolve_sk_company`, onde a LE BLANC **vence a ester**. Diferente da 084, o **fornecedor**
+LE BLANC também classifica (decisão do usuário). Abre com uma trava `DO $$` **deliberada**: aborta
+se o sk 4 não for a LE BLANC, porque o UPDATE gravaria FK válida para a empresa errada sem erro
+nenhum. Medido antes de aplicar: exatamente **4 contas** (348, 759, 1350, 1351); a 1468 já estava
+em 4 por curadoria manual.
+
 **A `134` cria a RPC `find_supplier_by_email(text)` — lookup de fornecedor por e-mail que NUNCA
 cria** (aplicada via Supabase MCP em 2026-08-19). Nasceu para o pipeline poder identificar o
 fornecedor pelo remetente ORIGINAL de um bloco ENCAMINHADO no corpo (caso da conta 1101, guia da

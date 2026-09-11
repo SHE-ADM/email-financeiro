@@ -102,29 +102,34 @@ COBRANCA_SEND_DELAY_SECONDS=10
 
 ## Entregabilidade (SPF / DKIM / DMARC) — DNS, fora do `.env`
 
-Estado em 2026-06-22: **SPF ✅** · **DMARC ⚠️ `p=none`** · **DKIM ❌ a configurar**. O envio
-**funciona sem DKIM** (o SPF já autentica), mas DKIM + DMARC mais rígido melhoram a caixa-de-entrada
-em Gmail/Outlook (e, desde 2024, são exigência para remetentes em volume). Runbook:
+Estado em 2026-09-01: **SPF ✅** · **DKIM ✅** · **Return Path ✅**. Resolvido via o produto
+**"Domínio de Remetente" do painel SMTP Locaweb** (`smtplw.com.br/panel/settings/return_path`),
+que usa o subdomínio dedicado `envio.otimotex.com.br` — não o `otimotex.com.br` raiz nem um
+seletor manual. Registros publicados e confirmados por consulta pública ao DNS:
 
-1. **DKIM (prioritário) — gerar no painel Locaweb.**
-   - Painel Locaweb → e-mail do domínio `otimotex.com.br` → **Assinatura DKIM** → ativar.
-   - A Locaweb fornece um registro **TXT** (ou CNAME) com um **seletor**
-     (ex.: `loc1._domainkey.otimotex.com.br`). Publicar exatamente esse registro no **DNS** do
-     domínio (provedor de DNS de `otimotex.com.br`).
-   - Validar: `nslookup -type=TXT loc1._domainkey.otimotex.com.br` deve retornar a chave pública
-     (`v=DKIM1; k=rsa; p=...`).
-2. **SPF (já existe) — confirmar.**
-   - TXT em `otimotex.com.br` deve conter `include:_spf.locaweb.com.br` e terminar em `~all`.
-   - Validar: `nslookup -type=TXT otimotex.com.br`.
-3. **DMARC — endurecer após DKIM estável.**
-   - Hoje `p=none` (só monitora). Com SPF+DKIM passando por ~1-2 semanas, subir para
-     `p=quarantine` e depois `p=reject`.
-   - TXT em `_dmarc.otimotex.com.br`, ex.:
-     `v=DMARC1; p=quarantine; rua=mailto:dmarc@otimotex.com.br; fo=1`.
-   - Validar: `nslookup -type=TXT _dmarc.otimotex.com.br`.
+| Registro | Host | Conteúdo | Status no painel |
+|---|---|---|---|
+| CNAME | `envio.otimotex.com.br` | `smtplw.com` | Autenticado |
+| CNAME DMARC | `_dmarc.envio.otimotex.com.br` | `_dmarc.smtpdlv.com.br` | Autenticado |
+| TXT DKIM | `smtp._domainkey.envio.otimotex.com.br` | `k=rsa; p=MIGf...` | Autenticado |
 
-> Esses três passos são executados no **painel da Locaweb + DNS do domínio** — não há nada a
-> mudar no código nem no `.env`.
+Validar (deve retornar exatamente os valores acima):
+
+```powershell
+nslookup -type=CNAME envio.otimotex.com.br
+nslookup -type=CNAME _dmarc.envio.otimotex.com.br
+nslookup -type=TXT smtp._domainkey.envio.otimotex.com.br
+```
+
+> **Não confundir com "Endereços de remetente"** (`smtplw.com.br/panel/settings/emails`) — tela
+> separada e **não obrigatória** desde a mudança de política do Google ("não é mais obrigatório
+> configurar um e-mail de remetente… você precisa apenas configurar o seu domínio como Return
+> Path"). Um domínio `smtp.otimotex.com.br` chegou a ser cadastrado ali por engano (fora do padrão
+> `smtplw.<domínio-alvo>` que a verificação exige) e não afeta o envio — o Return Path acima já
+> cobre a entregabilidade.
+
+> Esses passos são executados no **painel da Locaweb + DNS do domínio** — não há nada a mudar no
+> código nem no `.env`.
 
 ---
 

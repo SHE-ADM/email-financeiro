@@ -31,7 +31,7 @@ const DEFAULT_LIMIT = 20;
 const DETAIL_LIMIT = 50;
 
 // Domínios espelhados do banco. `status` são os nomes da dimensão (migration 067+); as empresas
-// são os 3 `sk_company` reais (1 OTIMOTEX TECIDOS · 2 LEBIANCO · 3 OTIMOTEX FARDOS).
+// são os 4 `sk_company` reais (1 OTIMOTEX TECIDOS · 2 LEBIANCO · 3 OTIMOTEX FARDOS · 4 LE BLANC).
 const STATUS_NAMES = [
   'pendente', 'vencido', 'a vencer', 'prorrogado', 'baixado',
   'protestado', 'cartório', 'pago', 'cancelado', 'falha',
@@ -58,7 +58,7 @@ const DATE_FIELDS = ['vencimento', 'pagamento', 'emissao'] as const;
 const GRANULARITIES = ['dia', 'semana', 'mes', 'trimestre'] as const;
 const CLASSIFICATION_DIMS = ['centro_custo', 'plano_contas', 'grupo', 'subgrupo', 'tipo'] as const;
 const AGING_GROUPS = ['faixa', 'empresa', 'fornecedor', 'centro_custo', 'plano_contas'] as const;
-const SK_COMPANIES = [1, 2, 3] as const;
+const SK_COMPANIES = [1, 2, 3, 4] as const;
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve ser YYYY-MM-DD');
 
@@ -68,7 +68,7 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve ser YYYY-MM-D
 const skCompanyId = z
   .number()
   .int()
-  .refine((v): v is 1 | 2 | 3 => (SK_COMPANIES as readonly number[]).includes(v), {
+  .refine((v): v is (typeof SK_COMPANIES)[number] => (SK_COMPANIES as readonly number[]).includes(v), {
     message: `Empresa inválida — use ${SK_COMPANIES.join(', ')}`,
   });
 
@@ -209,7 +209,7 @@ const dateField = {
 const skCompany = {
   type: 'integer',
   enum: SK_COMPANIES,
-  description: 'Empresa PAGADORA: 1 OTIMOTEX TECIDOS, 2 LEBIANCO, 3 OTIMOTEX FARDOS. '
+  description: 'Empresa PAGADORA: 1 OTIMOTEX TECIDOS, 2 LEBIANCO, 3 OTIMOTEX FARDOS, 4 LE BLANC. '
     + 'É independente do fornecedor — nunca inferir uma da outra.',
 };
 const limitProp = (def: number) => ({ type: 'integer', maximum: 100, default: def });

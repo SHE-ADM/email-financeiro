@@ -161,6 +161,28 @@ por nome (RPC `financial_dup_by_name` / `_dup_by_name`) foi **removida** — "EF
 "EFE DISPLAYS" deduplicam por já resolverem o mesmo `sk_supplier`. Teste:
 `tests/test_dup_by_supplier_id.py`.
 
+**Dedup casada não vinculava o PDF à conta existente — comprovante ausente em silêncio (achado
+2026-09-04, fornecedor ALKO):** o usuário reportou dois e-mails (`bi@envios.alko.com.br`, ids
+1781/1782, 28/08) marcados `sem_valor` em `/erros` e pediu para "corrigir, com robustez técnica".
+Investigação: o `sem_valor` era do banner de marketing Alko/Dekorama (`.gif` de cabeçalho, sem dado
+financeiro) — correto, não é bug. Mas cada e-mail também trazia o boleto **real** (`Boleto_1.pdf`,
+`Boleto_1_1.pdf`, `Boleto_2.pdf`), e esses **casaram por barcode** (impressão 1) contra as contas
+**1238/1239/1240** (NF 222961/222962/222963, R$ 14.965,50 / R$ 101.250,00 / R$ 9.054,38),
+lançadas manualmente dois dias antes a partir do e-mail "Envio da NF-e" — confirmado batendo o
+barcode extraído do PDF (baixado do bucket e parseado com `febraban.normalize_barcode`, o mesmo
+parser canônico do pipeline) contra o gravado no banco: **idêntico nos três casos**. A dedup em si
+estava correta. O bug real: `extract_and_store_accounts` atualiza `due_date`/`barcode`/juros na
+conta existente (branches REEMISSÃO/DUP-DOC) mas **nunca chamava `register_attachment`** — só o
+caminho de conta NOVA vinculava o anexo. O PDF já estava no Storage (upload do Passo 1), mas a
+linha em `financial_account_attachment` nunca era criada: a conta ficava **sem nenhum comprovante
+anexado**, sem erro, sem status distinto, sem sintoma — só um anexo ausente que ninguém nota até
+precisar dele. Corrigido chamando `ctrl.register_attachment(dup["id"], src, ...)` no bloco de
+dedup, com o mesmo `size_bytes`/`uploaded_by` do caminho de conta nova (idempotente, não-fatal).
+Testes: `tests/test_boleto_dedup_suppresses_body.py` (4 asserções novas no call site real,
+validadas por mutante — revertendo o fix os 4 caem no vermelho). Correção de dados: os 3 anexos
+foram vinculados retroativamente às contas 1238/1239/1240 (mesma chamada `register_attachment`,
+`origin='pipeline'`).
+
 ### Normalização de `document_type`
 
 `extract_pdf.py` usa `_ns()` (strip de acentos + lowercase) para lookup em `_DOC_TYPE_NORM`.
@@ -1122,8 +1144,8 @@ identificador não ser barrada antes da regra. Testes: `tests/test_supplier_impo
 
 > ✅ **COMPORTAMENTO CORRETO — NÃO "consertar" (multi-empresa):** esta regra grava **`sk_supplier`**
 > (o fornecedor), **não** a empresa pagadora. **Não existe — nem deve existir — regra ligando
-> documento tributário a `sk_company`**: a guia pega a empresa pela precedência geral (ester → 3 ·
-> lebianco → 2 · senão → 1), sem tratamento especial.
+> documento tributário a `sk_company`**: a guia pega a empresa pela precedência geral (LE BLANC → 4 ·
+> ester → 3 · lebianco → 2 · senão → 1), sem tratamento especial.
 > **`sk_company` (PAGADORA) e `sk_supplier` (FORNECEDOR) são INDEPENDENTES** — decisão do usuário,
 > reafirmada em 2026-07-17: *"company pode ser lebianco ao mesmo tempo que supplier otimotex"*.
 > Logo, as **13 guias tributárias da LEBIANCO com `sk_supplier=1` (OTIMOTEX)** que existem hoje
@@ -1133,6 +1155,33 @@ identificador não ser barrada antes da regra. Testes: `tests/test_supplier_impo
 > **Não** criar fornecedor LEBIANCO/FARDOS para "corrigir" isso nem fazer backfill.
 > Nota: o `supplier` sk 1 **continua chamado "OTIMOTEX"** (o rename de 2026-07-17 foi só de
 > `company.trade_name`; os dois cadastros são independentes).
+
+#### Empresa pagadora LE BLANC (`sk_company = 4`, 2026-09-11)
+
+`company` 4 = **LE BLANC ADMINISTRACAO DE BENS PROPRIOS LTDA**, CNPJ `20584679000110` — raiz
+**diferente** do grupo OTIMOTEX (`47273917`). Decisões do usuário: qualquer menção marca a conta
+como da LE BLANC, **inclusive quando ela é a FORNECEDORA**; ela **vence a ester**; vale para todo
+e-mail da caixa (não só o remetente financeiro@).
+
+- **Grafias:** `_LE_BLANC_RE` casa `le` + separador opcional (espaço, `_`, `.`, `-`) + `blanc` sobre o
+  texto sem acento. Casos reais: assunto "ENC: Le Blanc - Boleto Porto Saúde", "Certificado Digital
+  LE BLANC HOLDING S A", anexos `BOLETO_LEBLANC_-_POR.pdf` e `NOTA_FISCAL_LE_BLANC.pdf`. Fronteira
+  por lookaround (não `\b`, que trata `_` como letra) e, à direita, impede "LEBLANCO".
+- **CNPJ:** `payer_cnpj`/`supplier_cnpj` de 14 dígitos com a raiz `20584679`. CNPJ com dígito
+  deslocado por OCR (conta 759: `02058467900011`) **não** casa de propósito — ali quem classifica é o
+  assunto.
+- **Fornecedor:** `_finalize_supplier` remove `supplier_name`/`supplier_cnpj` do payload; por isso
+  os dois call sites capturam `_le_blanc_supplier_signal(payload)` **antes** dele e repassam
+  `le_blanc=` a `apply_sk_company`. Validado por mutante: sem a captura, a fornecedora lida só pelo
+  Vision volta a cair em 1.
+- **Fornecedora continua possível:** a exclusão "a pagadora nunca é fornecedor" usa só o CNPJ do
+  sk 1 (`company_cnpj()`), então a LE BLANC resolve como fornecedor normalmente. `company_cnpjs()`
+  passa a oferecer o CNPJ dela nas senhas candidatas de boleto cifrado.
+- **Backfill:** migration 135 (4 contas: 348, 759, 1350, 1351).
+- **Riscos aceitos:** assinatura de grupo citando "Le Blanc" marcaria tudo como 4 (mesmo modo de
+  falha da conta 167 com "Le Bianco"); nome de cor/linha de tecido "LE BLANC" num anexo marcaria a
+  conta; aluguel emitido pela LE BLANC contra a OTIMOTEX nasce com pagadora 4 (correção manual pela
+  tela — o trigger da 084 preserva a curadoria); a flag é por MENSAGEM, como a da LEBIANCO.
 
 Backfill
 único aplicado em 2026-07-03 (ids 331/333/334/373/374 → OTIMOTEX; fornecedores-lixo 1243/1247/1248

@@ -178,9 +178,12 @@ describe('parseToolInput', () => {
   // O domínio do Zod tem de bater com o enum do JSON Schema. Aceitar aqui o que lá é proibido faz
   // o modelo receber lista vazia e concluir "não há contas dessa empresa" — em vez de um erro que
   // ele consegue corrigir, que é o propósito desta camada.
-  it('rejeita sk_company fora de {1,2,3}, o mesmo domínio do JSON Schema', () => {
+  it('rejeita sk_company fora de {1,2,3,4}, o mesmo domínio do JSON Schema', () => {
     expect(parseToolInput('resumo_situacao', { sk_company: 99 }).ok).toBe(false);
+    expect(parseToolInput('resumo_situacao', { sk_company: 5 }).ok).toBe(false);
     expect(parseToolInput('resumo_situacao', { sk_company: 3 }).ok).toBe(true);
+    // 4 = LE BLANC (2026-09-11): sem ela o modelo não filtraria a empresa nova.
+    expect(parseToolInput('resumo_situacao', { sk_company: 4 }).ok).toBe(true);
   });
 
   it('rejeita nature_id fora da faixa de smallint (evita erro cru do Postgres)', () => {

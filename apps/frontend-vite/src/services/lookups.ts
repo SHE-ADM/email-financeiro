@@ -112,7 +112,7 @@ export function listStatuses(): Promise<StatusOption[]> {
   return call<StatusOption[]>('/statuses');
 }
 
-// Empresas pagadoras (OTIMOTEX/LEBIANCO) — lookup do <select> "Empresa" do ContaForm.
+// Empresas pagadoras (cadastro `company`, hoje 4 linhas) — lookup do <select> "Empresa" do ContaForm.
 export function listCompanies(): Promise<CompanyOption[]> {
   return call<CompanyOption[]>('/companies');
 }
