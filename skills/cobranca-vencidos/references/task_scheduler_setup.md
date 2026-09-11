@@ -1,6 +1,6 @@
 # Windows Task Scheduler -- Setup
 
-Configurar uma tarefa agendada para rodar `run.py` todos os dias as 08:00.
+Configurar uma tarefa agendada para rodar `run.py` todos os dias as 10:00.
 
 ---
 
@@ -20,7 +20,7 @@ Configurar uma tarefa agendada para rodar `run.py` todos os dias as 08:00.
 - Clique em **Novo...**
 - Iniciar a tarefa: **Em uma agenda**
 - Configuracoes: **Diariamente**
-- Hora de inicio: `08:00:00`
+- Hora de inicio: `10:00:00`
 - Recorrencia: a cada `1` dia(s)
 - Marcar: **Habilitado**
 
@@ -73,7 +73,7 @@ $action = New-ScheduledTaskAction `
     -Argument "skills/cobranca-vencidos/scripts/run.py" `
     -WorkingDirectory "C:\Sheild\Projetos\Claude\Contas a pagar\Pagamentos"
 
-$trigger = New-ScheduledTaskTrigger -Daily -At "08:00"
+$trigger = New-ScheduledTaskTrigger -Daily -At "10:00"
 
 $settings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable `

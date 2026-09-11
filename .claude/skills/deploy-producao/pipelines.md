@@ -49,7 +49,7 @@ py -3 -c "import sys; sys.path.insert(0,'skills/email-reader/scripts'); import r
 
 ---
 
-## 2. Cobrança de vencidos (envios, 08:00)
+## 2. Cobrança de vencidos (envios, 10:00)
 
 **Copiar** — a pasta `skills\cobranca-vencidos\scripts\` inteira (8 arquivos).
 
@@ -118,8 +118,9 @@ py -3 skills\baixa-automatica\scripts\run.py --dry-run
 `Consulta.tsx`, que sai pelo Vercel). Ao mudar essa regra, ajuste **os dois lados**. A Regra 2
 (vencidos) vive só neste batch.
 
-⚠️ Coincide às 08:00 com a Cobrança de vencidos — são independentes (bancos e sistemas distintos),
-rodam em paralelo sem conflito.
+⚠️ **Deixou de coincidir com a Cobrança de vencidos em 2026-09-01** — a Cobrança foi reagendada
+para 10:00; a Baixa segue às 08:00. Enquanto coincidiam, eram independentes (bancos e sistemas
+distintos) e rodavam em paralelo sem conflito; hoje simplesmente não se sobrepõem mais.
 
 ---
 
@@ -244,7 +245,7 @@ Cinco tarefas na pasta `\Sheild\` (produção `C:\Sheild\API\Pagamentos`):
 | Tarefa | Frequência | Wrapper | Event Log |
 |---|---|---|---|
 | Email Reader | 5 min | `run_reader.ps1` | — |
-| Cobrança Vencidos | 08:00 | `run_cobranca.ps1` | `Pagamentos-Cobranca` |
+| Cobrança Vencidos | 10:00 | `run_cobranca.ps1` | `Pagamentos-Cobranca` |
 | Backup Supabase | 02:00 | `run_backup.ps1` | `Pagamentos-Backup` (1003) |
 | Baixa Automática | 08:00 | `run_baixa.ps1` | `Pagamentos-Baixa` |
 | Gatilhos Roadmap | dia 1, 07:00 | `run_gatilhos.ps1` | `Pagamentos-Gatilhos` (1005) |

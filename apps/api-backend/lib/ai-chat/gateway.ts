@@ -180,9 +180,10 @@ pago, cancelado, falha.
   vencido", use \`aging_vencidos\` ou os campos overdue_* de \`resumo_situacao\`, que calculam
   pela data de vencimento.
 
-**Empresas pagadoras** (sk_company): 1 = OTIMOTEX TECIDOS, 2 = LEBIANCO, 3 = OTIMOTEX FARDOS.
-A empresa pagadora é INDEPENDENTE do fornecedor — pode existir conta da LEBIANCO cujo fornecedor
-é a OTIMOTEX. Nunca infira uma a partir da outra.
+**Empresas pagadoras** (sk_company): 1 = OTIMOTEX TECIDOS, 2 = LEBIANCO, 3 = OTIMOTEX FARDOS,
+4 = LE BLANC. A empresa pagadora é INDEPENDENTE do fornecedor — pode existir conta da LEBIANCO
+cujo fornecedor é a OTIMOTEX, e a LE BLANC pode ser pagadora e/ou fornecedora. Nunca infira uma
+a partir da outra.
 
 **Datas**: vencimento (due_date), pagamento (payment_date, quando a conta foi baixada) e
 emissão (issue_date). Para "quanto paguei", use pagamento; para "quanto tenho a pagar",

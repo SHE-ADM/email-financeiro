@@ -16,7 +16,7 @@ agendador rode múltiplas vezes.
 ## Arquitetura
 
 ```
-Windows Task Scheduler (08:00 diário)
+Windows Task Scheduler (10:00 diário)
         │
         ▼
 skills/cobranca-vencidos/scripts/run.py
@@ -130,7 +130,7 @@ Rodar `references/migration.sql` no SQL Editor do Supabase antes da primeira exe
 ## Agendamento
 
 Ver `references/task_scheduler_setup.md` para configurar o Windows Task Scheduler
-apontando para este script às 08:00 diariamente.
+apontando para este script às 10:00 diariamente.
 
 ---
 

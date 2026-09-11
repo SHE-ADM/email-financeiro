@@ -2,9 +2,12 @@
 test_sk_company_lebianco.py — regra da EMPRESA PAGADORA (sk_company) na extracao.
 
 Regra por PRECEDENCIA (decisao do usuario, 2026-07-17):
-  1o remetente ester@otimotex.com.br -> sk_company = 3 (OTIMOTEX FARDOS)  <- VENCE tudo
+  1o remetente ester@otimotex.com.br -> sk_company = 3 (OTIMOTEX FARDOS)
   2o referencia a "lebianco" (assunto / corpo / ANEXO / remetente / dominio) -> 2
   3o nenhum dos dois -> 1 (OTIMOTEX TECIDOS)
+Desde 2026-09-11 a mencao a LE BLANC (sk 4) vem ANTES de tudo, inclusive da ester — coberta
+em tests/test_sk_company_le_blanc.py. Nenhum caso deste arquivo cita LE BLANC, entao todos
+seguem valendo.
 
 Regra anterior (preservada nos ramos 2o/3o):
   - referencia a "lebianco" no assunto / corpo / ANEXO / remetente / dominio -> sk_company = 2

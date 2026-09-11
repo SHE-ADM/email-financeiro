@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Wrapper do agendador — executa run.py (cobrança de vencidos) e grava log diário.
-    Chamado pelo Windows Task Scheduler 1x por dia às 08:00 (setup-cobranca-task.ps1).
+    Chamado pelo Windows Task Scheduler 1x por dia às 10:00 (setup-cobranca-task.ps1).
 
 .NOTES
     Não altere este arquivo para trocar credenciais ou dados do Firebird.

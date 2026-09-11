@@ -197,7 +197,7 @@ interface ConsultaFilters {
   docType: string;
   // Situação filtrada por status_id (fonte única). undefined = sem filtro.
   statusId?: number;
-  // Empresa pagadora (sk_company: 1=OTIMOTEX TECIDOS, 2=LEBIANCO, 3=OTIMOTEX FARDOS). undefined = todas.
+  // Empresa pagadora (sk_company: 1=OTIMOTEX TECIDOS, 2=LEBIANCO, 3=OTIMOTEX FARDOS, 4=LE BLANC). undefined = todas.
   skCompany?: number;
   paymentMethod: string;
   // Coluna do filtro de PERÍODO (botões de mês/ano): vencimento (padrão) ou emissão.

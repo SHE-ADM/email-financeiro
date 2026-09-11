@@ -1,6 +1,6 @@
 """
 run.py -- Entry-point da skill cobranca-vencidos
-Invocado diretamente pelo Windows Task Scheduler as 08:00.
+Invocado diretamente pelo Windows Task Scheduler as 10:00.
 
 Uso:
     py -3 skills/cobranca-vencidos/scripts/run.py

@@ -101,6 +101,11 @@ devolver "sem duplicata" e o pipeline **gravaria conta duplicada**. Resultado va
 **Reemissão** (vencimento mais recente) atualiza a conta existente. **Dedup que descarta tudo do
 PDF ⇒ status `duplicidade`**, nunca `extraído` — é o que torna a perda auditável.
 
+🔴 **Boleto casado por dedup TAMBÉM vincula o anexo à conta EXISTENTE** (`register_attachment` no
+bloco de dedup, não só no de conta nova). O PDF já está no Storage desde o Passo 1; sem o vínculo,
+a conta ficava sem nenhum comprovante — sem erro, sem status distinto (achado 2026-09-04,
+fornecedor ALKO — contas 1238/1239/1240 sem PDF por dois dias).
+
 ## Resolução de fornecedor e empresa
 
 **Ordem da RPC `resolve_supplier_id`:** CNPJ → CPF → nome normalizado → **e-mail exato** →
@@ -119,17 +124,27 @@ auto-insert.
 
 **Empresa pagadora (`sk_company`) — a ORDEM é a regra:**
 
-1. remetente `ester@otimotex.com.br` (endereço **exato**) → **3 FARDOS** — vence o domínio e a
+1. menção a **LE BLANC** (`_LE_BLANC_RE`: "le blanc", "leblanc", "le_blanc", "le-blanc") em
+   assunto/corpo/remetente/anexo (texto **e** nome do arquivo)/descrição/pagador/**fornecedor**, ou
+   `payer_cnpj` com a raiz `20584679` → **4 LE BLANC** — **vence a ester** (decisão 2026-09-11)
+2. remetente `ester@otimotex.com.br` (endereço **exato**) → **3 FARDOS** — vence o domínio e a
    menção a lebianco
-2. referência a "lebianco" (assunto/corpo/anexo/remetente/domínio) → **2 LEBIANCO** — **vence o
+3. referência a "lebianco" (assunto/corpo/anexo/remetente/domínio) → **2 LEBIANCO** — **vence o
    CNPJ**
-3. nada disso → **1 TECIDOS** (default)
+4. nada disso → **1 TECIDOS** (default)
 
 ⚠️ **`OTIMOTEX_SK_SUPPLIER` (=1) ≠ `SK_COMPANY_DEFAULT` (=1)** — tabelas diferentes, mesmo valor.
 Nunca find-replace nos dois (há teste travando).
 🔴 **`supplier_name`/`supplier_cnpj` ficam FORA da varredura de lebianco** — a LEBIANCO pode ser o
 FORNECEDOR, e aí quem paga é a OTIMOTEX.
+🔴 **Assimetria deliberada: o fornecedor LE BLANC CLASSIFICA** (o usuário decidiu que toda menção
+vale). O sinal é capturado por `_le_blanc_supplier_signal` **antes** de `_finalize_supplier`, que
+remove as colunas de fornecedor — depois dele a fornecedora lida só pelo Vision some em silêncio.
+🔴 **A fronteira à direita do regex não se remove** — sem ela "LEBLANCO" (OCR de LEBIANCO) casaria.
+Lookaround, não `\b`: o `\b` trata `_` como letra e perderia `BOLETO_LEBLANC_.pdf`.
 🔴 **"LE BIANCO" (com espaço) vale só no ASSUNTO** — no corpo aparece na assinatura do grupo.
+⚠️ **"LE BLANC" vale em TODA fonte, inclusive o corpo** — se a assinatura do grupo passar a citá-la,
+toda conta vira 4 (o mesmo modo de falha da conta 167). Testes: `tests/test_sk_company_le_blanc.py`.
 
 ## Boleto por link — o guard anti-SSRF não se remove
 

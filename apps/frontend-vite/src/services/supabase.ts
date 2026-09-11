@@ -247,7 +247,7 @@ interface FinancialAccountControlFilters {
   docType?: string;
   // Situação filtrada por status_id (fonte única). undefined = sem filtro de situação.
   statusId?: number;
-  // Empresa pagadora (FK sk_company: 1=OTIMOTEX TECIDOS, 2=LEBIANCO, 3=OTIMOTEX FARDOS). undefined = todas.
+  // Empresa pagadora (FK sk_company: 1=OTIMOTEX TECIDOS, 2=LEBIANCO, 3=OTIMOTEX FARDOS, 4=LE BLANC). undefined = todas.
   skCompany?: number;
   paymentMethod?: string;
   // Coluna de data do PERÍODO (botões de mês/ano): vencimento (default) ou emissão.
@@ -1210,7 +1210,7 @@ function computeKpis<T extends { amount: number | null; status_id: number; due_d
 // de data nos painéis). O gráfico de movimentações sempre reflete o `year`.
 // `filter` = KPI clicado no topo: os cards mantêm os totais completos, mas TODOS
 // os gráficos passam a refletir só o subconjunto do KPI (limpar = 'total').
-// `skCompany` (opcional): empresa pagadora (1=OTIMOTEX TECIDOS, 2=LEBIANCO, 3=OTIMOTEX FARDOS); undefined = TODAS.
+// `skCompany` (opcional): empresa pagadora (1=OTIMOTEX TECIDOS, 2=LEBIANCO, 3=OTIMOTEX FARDOS, 4=LE BLANC); undefined = TODAS.
 // Diferente de /consulta (cujos KPIs gerais são globais), aqui o filtro vale para TUDO —
 // KPIs, donuts e o gráfico anual —, pois no dashboard todo indicador deriva do escopo.
 export async function getDashboardData(month: number, year: number, scope: DashboardScope = 'month', filter: KpiFilter = 'total', skCompany?: number): Promise<DashboardData> {

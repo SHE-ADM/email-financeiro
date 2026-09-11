@@ -1,5 +1,73 @@
 # Histórico de deploys
 
+## 2026-09-11 — Empresa pagadora LE BLANC (`sk_company = 4`)
+
+**O que foi ao ar.** A 4ª empresa pagadora entrou na regra de precedência de `resolve_sk_company`:
+menção a LE BLANC em qualquer grafia ("le blanc", "leblanc", "le_blanc", "le-blanc") e em qualquer
+fonte — assunto, corpo, remetente, texto e nome do anexo, descrição, pagador e **fornecedor** — ou
+`payer_cnpj` com a raiz `20584679` ⇒ `sk_company = 4`, **vencendo a ester**. As regras FARDOS,
+LEBIANCO e o default OTIMOTEX TECIDOS seguem intactas abaixo dela. De carona foi o vínculo do anexo
+à conta existente no caminho de dedup (contas 1238/1239/1240, ALKO), que já estava no mesmo
+`read_emails.py`.
+
+**Arquivos:** `read_emails.py`, `deploy-manifest.json`. Sem módulo novo, sem dependência nova,
+sem re-registro de tarefa. **Migration 135** (backfill: 348, 759, 1350, 1351 → 4) já aplicada
+antes do deploy — base compartilhada dev+prod.
+
+**Verificação em produção:** `check_deploy_parity.py` → **32/32 conferem, 0 faltando, 0
+divergentes, 0 extras**. O resultado também encerra a pendência da entrada de 2026-09-01: os 4
+arquivos da cobrança que tinham mudado de hash (`run.py`, `run_cobranca.ps1`,
+`setup-cobranca-task.ps1`, `setup-gatilhos-task.ps1`) conferem. Primeiro sinal no dado: o próximo e-mail que cite a LE BLANC tem de nascer com `sk_company = 4`
+(`SELECT id, sk_company FROM financial_account_control WHERE created_at >= '2026-09-11' AND sk_company = 4`).
+
+**Pendente fora do pipeline:** a mudança do chat de IA (`tools.ts`/`gateway.ts`, filtro pela
+empresa 4) sai pelo Vercel via PR para `main`.
+
+## 2026-09-01 — Cobrança de vencidos: horário movido para 10:00 + Return Path/DKIM da Locaweb
+
+**O que mudou.** O horário da tarefa `Pagamentos - Cobrança Vencidos` foi alterado **direto no
+Windows Task Scheduler da máquina de produção** (08:00 → 10:00), fora do fluxo de deploy normal.
+Documentação e scripts do repositório foram sincronizados na sequência para não ficarem
+divergentes da realidade: `CLAUDE.md`, `progress.md`, a skill `deploy-producao` (`pipelines.md`,
+inclusive a nota de coincidência de horário com a Baixa Automática, que deixou de valer), a skill
+`cobranca-vencidos` (`SKILL.md`, `task_scheduler_setup.md`), e os `.ps1`/`.py` com o horário
+hardcoded (`run.py`, `run_cobranca.ps1`, `setup-cobranca-task.ps1` — inclusive `$TRIGGER_H`, para
+que um reprovisionamento futuro da tarefa gere 10:00 e não volte a 08:00 — e o comentário em
+`setup-gatilhos-task.ps1`).
+
+Também foi resolvida a configuração de **Return Path + DKIM** no painel SMTP Locaweb, via o
+subdomínio dedicado `envio.otimotex.com.br` (CNAME + CNAME DMARC + TXT DKIM, todos autenticados) —
+ver [env_reference.md](../../skills/cobranca-vencidos/references/env_reference.md). Um domínio
+`smtp.otimotex.com.br` cadastrado por engano em "Endereços de remetente" (tela distinta, não
+obrigatória) foi excluído.
+
+**Arquivos que MUDARAM HASH e ainda precisam ser copiados para produção** (o manifesto já foi
+regravado com `--update`, mas a cópia física é manual, como sempre): `run.py`, `run_cobranca.ps1`,
+`setup-cobranca-task.ps1`, `setup-gatilhos-task.ps1` (só comentário). Até a cópia, um
+`check_deploy_parity.py` rodado em produção vai acusar esses 4 como **divergentes** — é esperado,
+não é regressão.
+
+**Verificação em produção (antes desta sincronização):** `check_deploy_parity.py` → **32/32
+conferem, 0 faltando, 0 divergentes, 0 extras**, confirmando que a query nova (`CD_GP_NO`, ver
+entrada de 2026-08-31 abaixo) já estava no ar.
+
+## 2026-08-31 — Cobrança de vencidos: exclusão por grupo econômico (`CD_GP_NO`) substitui exclusão por `CD_ID`
+
+**O que foi ao ar.** A query Firebird de títulos vencidos (`db_firebird.py`) trocou a exclusão por
+`CD_ID <> 8949` / `<> 21775` por exclusão de 6 grupos econômicos via `CD_GP_NO`
+(`INBRANDS`, `RESTOQUE`, `SHOULDER`, `SKAI`, `SOMA`, `LOJAS MEL`), replicada nos dois blocos do
+`UNION ALL` (`VW_PSQ_FIN_REC_BAN` e `VW_PSQ_FIN_REC_BAN_004`). A exclusão antiga por `CD_ID` foi
+**removida, não somada** — se algum dos dois clientes específicos ainda precisava ficar de fora por
+outro motivo não coberto pelos grupos novos, ele volta a entrar na cobrança.
+
+**Arquivos:** `db_firebird.py`, `deploy-manifest.json`. Sem `.env` novo, sem dependência nova, sem
+re-registro de tarefa (mudança é só lógica, não `.ps1`).
+
+**Verificação em produção:** `run.py --dry-run` caiu de 115–185 títulos/dia (patamar medido nos 5
+dias anteriores à mudança) para **18**, assinatura do novo filtro ativo — a query antiga manteria a
+contagem na casa das centenas. `check_deploy_parity.py` → **32/32 conferem, 0 faltando, 0
+divergentes, 0 extras**.
+
 ## 2026-08-20 — Tipo `dar / dare`, fallback de fornecedor por e-mail encaminhado e contraprova da guia de arrecadação no Vision
 
 **O que foi ao ar.** Três frentes do mesmo caso de origem (conta 1101), mescladas em

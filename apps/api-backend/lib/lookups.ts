@@ -23,8 +23,8 @@ export interface StatusOption {
 }
 
 // Linha do cadastro `company` (lookup da empresa pagadora no ContaForm —
-// financial_account_control.sk_company). Hoje 3 linhas: OTIMOTEX TECIDOS (1), LEBIANCO (2)
-// e OTIMOTEX FARDOS (3). Sem filtro/limite — empresa nova aparece sozinha nos selects.
+// financial_account_control.sk_company). Hoje 4 linhas: OTIMOTEX TECIDOS (1), LEBIANCO (2),
+// OTIMOTEX FARDOS (3) e LE BLANC (4). Sem filtro/limite — empresa nova aparece sozinha nos selects.
 export interface CompanyOption {
   sk_company: number;
   trade_name: string | null;
@@ -203,8 +203,8 @@ export const statusService = {
 export const companyService = {
   /**
    * Lista o cadastro `company` (lookup da EMPRESA PAGADORA — alimenta o <select> de
-   * `financial_account_control.sk_company` no ContaForm). Cadastro minúsculo (2 linhas:
-   * OTIMOTEX/LEBIANCO) e só-leitura — sem busca nem paginação, como o statusService.
+   * `financial_account_control.sk_company` no ContaForm). Cadastro minúsculo (4 linhas:
+   * OTIMOTEX TECIDOS/LEBIANCO/OTIMOTEX FARDOS/LE BLANC) e só-leitura — sem busca nem paginação, como o statusService.
    * Ordenado por nome para a lista ficar estável na tela.
    * @throws {LookupServiceError} 500 em falha do banco.
    */
